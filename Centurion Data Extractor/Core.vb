@@ -1,6 +1,4 @@
-﻿
-
-'This module's imports and settings.
+﻿'This module's imports and settings.
 Option Compare Binary
 Option Explicit On
 Option Infer Off
@@ -38,9 +36,12 @@ Public Module CoreModule
    Public Sub Main()
       Try
          Dim DatFile As String = Nothing
+         Dim DecompressedData As New List(Of Byte)
+         Dim DecompressedFile As String = Nothing
          Dim DirFileEntries As List(Of DirFileEntryStr) = Nothing
          Dim DirFiles() As FileInfo = {}
          Dim SourcePath As String = Nothing
+         Dim TargetFile As String = Nothing
          Dim TargetPath As String = Nothing
 
          If GetCommandLineArgs().Count = 2 Then
@@ -68,8 +69,19 @@ Public Module CoreModule
                      Console.WriteLine($"Extracting data file: {DatFile}")
                      For Each DirFileEntry As DirFileEntryStr In DirFileEntries
                         With DirFileEntry
-                           Console.WriteLine($"Writing: { .FileName} ({ .Format.ToString()})")
-                           File.WriteAllBytes(Path.Combine(TargetPath, .FileName), GetDatFileData(DatFile).GetRange(.Offset, .Length).ToArray())
+                           TargetFile = Path.Combine(TargetPath, .FileName)
+                           Console.WriteLine($"Writing: { TargetFile} ({ .Format.ToString()})")
+                           File.WriteAllBytes(TargetFile, GetDatFileData(DatFile).GetRange(.Offset, .Length).ToArray())
+                           If .Format = FormatsE.Compressed Then
+                              DecompressedFile = $"{TargetFile}.DAT"
+                              Console.WriteLine($"Decompressing: { .FileName} to: {DecompressedFile}")
+                              DecompressedData = Decompress(File.ReadAllBytes(TargetFile))
+                              If DecompressedData.Count = 0 Then
+                                 Console.WriteLine("WARNING: Could not decompress file.")
+                              Else
+                                 File.WriteAllBytes(DecompressedFile, DecompressedData.ToArray())
+                              End If
+                           End If
                         End With
                      Next DirFileEntry
                   Next DirFile
@@ -125,6 +137,58 @@ Public Module CoreModule
          HandleError(ExceptionO)
       End Try
    End Sub
+
+   'This procedure decompresses the specified compressed data and returns the result.
+   Private Function Decompress(CompressedData() As Byte) As List(Of Byte)
+      Try
+         Dim ByteO As New Byte
+         Dim DecompressedData As New List(Of Byte)
+         Dim DecompressedSize As New Integer
+         Dim Dictionary(&H0% To &HFFF%) As Byte
+         Dim DictionaryPosition As Integer = &HFEE%
+         Dim Flag As New Integer
+         Dim Flags As New Integer
+         Dim Length As New Integer
+         Dim Offset As New Integer
+
+         Using CompressedDataSream As New BinaryReader(New MemoryStream(CompressedData))
+            DecompressedSize = CompressedDataSream.ReadInt32()
+            While (CompressedDataSream.BaseStream.Position < CompressedDataSream.BaseStream.Length)
+               ByteO = CompressedDataSream.ReadByte()
+               If Flags <= &H1% Then
+                  Flags = &H100% Or ByteO
+               Else
+                  Flag = Flags And &H1%
+                  Flags = Flags >> &H1%
+                  If Flag = &H0% Then
+                     Offset = ByteO
+                     ByteO = CompressedDataSream.ReadByte()
+                     Offset = Offset Or (ByteO And &HF0%) << &H4%
+                     Length = (ByteO And &HF%) + &H3%
+                     While Length > &H0%
+                        Length -= &H1%
+                        ByteO = Dictionary(Offset)
+                        Offset = (Offset + &H1%) And &HFFF%
+                        DecompressedData.Add(ByteO)
+                        Dictionary(DictionaryPosition) = ByteO
+                        DictionaryPosition = (DictionaryPosition + &H1%) And &HFFF%
+                     End While
+                  ElseIf Flag = &H1% Then
+                     Dictionary(DictionaryPosition) = ByteO
+                     DictionaryPosition = (DictionaryPosition + &H1%) And &HFFF%
+                     DecompressedData.Add(ByteO)
+                  End If
+               End If
+            End While
+         End Using
+
+         Return If(DecompressedData.Count = DecompressedSize, DecompressedData, New List(Of Byte))
+      Catch ExceptionO As Exception
+         HandleError(ExceptionO)
+      End Try
+
+      Return New List(Of Byte)
+   End Function
 
    'This procedure retrieves and returns the specified data file's contents.
    Private Function GetDatFileData(DatFile As String) As List(Of Byte)
