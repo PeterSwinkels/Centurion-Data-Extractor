@@ -36,8 +36,6 @@ Public Module CoreModule
    Public Sub Main()
       Try
          Dim DatFile As String = Nothing
-         Dim DecompressedData As New List(Of Byte)
-         Dim DecompressedFile As String = Nothing
          Dim DirFileEntries As List(Of DirFileEntryStr) = Nothing
          Dim DirFiles() As FileInfo = {}
          Dim SourcePath As String = Nothing
@@ -73,19 +71,14 @@ Public Module CoreModule
                            Console.WriteLine($"Writing: { TargetFile} ({ .Format.ToString()})")
                            File.WriteAllBytes(TargetFile, GetDatFileData(DatFile).GetRange(.Offset, .Length).ToArray())
                            If .Format = FormatsE.Compressed Then
-                              DecompressedFile = $"{TargetFile}.DAT"
-                              Console.WriteLine($"Decompressing: { .FileName} to: {DecompressedFile}")
-                              DecompressedData = Decompress(File.ReadAllBytes(TargetFile))
-                              If DecompressedData.Count = 0 Then
-                                 Console.WriteLine("WARNING: Could not decompress file.")
-                              Else
-                                 File.WriteAllBytes(DecompressedFile, DecompressedData.ToArray())
-                              End If
+                              DecompressFile(TargetFile)
                            End If
                         End With
                      Next DirFileEntry
                   Next DirFile
                End If
+            ElseIf File.Exists(SourcePath) Then
+               DecompressFile(SourcePath)
             Else
                Throw New Exception($"Could not find: {SourcePath}.")
             End If
@@ -94,7 +87,8 @@ Public Module CoreModule
                Console.WriteLine($"{ .Title} v{ .Version}, by: { .CompanyName}, ***{ .Copyright }***")
                Console.WriteLine()
                Console.WriteLine($"Usage: ""{ .AssemblyName}.exe"" path")
-               Console.WriteLine()
+               Console.WriteLine("Or:")
+               Console.WriteLine($"""{ .AssemblyName}.exe"" compressed file")
             End With
          End If
       Catch ExceptionO As Exception
@@ -139,7 +133,7 @@ Public Module CoreModule
    End Sub
 
    'This procedure decompresses the specified compressed data and returns the result.
-   Private Function Decompress(CompressedData() As Byte) As List(Of Byte)
+   Private Function DecompressData(CompressedData() As Byte) As List(Of Byte)
       Try
          Dim ByteO As New Byte
          Dim DecompressedData As New List(Of Byte)
@@ -189,6 +183,26 @@ Public Module CoreModule
 
       Return New List(Of Byte)
    End Function
+
+   'This procedure decompresses the specified file and writes the result to another file.
+   Private Sub DecompressFile(CompressedFile As String)
+      Try
+         Dim DecompressedData As New List(Of Byte)
+         Dim DecompressedFile As String = Nothing
+
+         DecompressedFile = $"{CompressedFile}.DAT"
+         Console.WriteLine($"Decompressing: {CompressedFile} to: {DecompressedFile}")
+         DecompressedData = DecompressData(File.ReadAllBytes(CompressedFile))
+         If DecompressedData.Count = 0 Then
+            Console.WriteLine("WARNING: Could not decompress file.")
+         Else
+            File.WriteAllBytes(DecompressedFile, DecompressedData.ToArray())
+         End If
+      Catch ExceptionO As Exception
+         HandleError(ExceptionO)
+      End Try
+   End Sub
+
 
    'This procedure retrieves and returns the specified data file's contents.
    Private Function GetDatFileData(DatFile As String) As List(Of Byte)
