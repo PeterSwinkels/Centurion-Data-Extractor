@@ -9,7 +9,7 @@ Imports System.Runtime.InteropServices
 ' Review the values of the assembly attributes
 
 <Assembly: AssemblyTitle("Centurion Data Extractor")>
-<Assembly: AssemblyDescription("This program extracts the files from the *.dat and *.dir files used by the 1990 game Centurion Defender of Rome. Can also decompress various other games's files.")>
+<Assembly: AssemblyDescription("This program extracts the files from the *.dat and *.dir files used by the 1990 game Centurion Defender of Rome. Can also decompress various other games' files.")>
 <Assembly: AssemblyCompany("Peter Swinkels")>
 <Assembly: AssemblyProduct("Centurion Data Extractor")>
 <Assembly: AssemblyCopyright("2022")>
