@@ -92,7 +92,7 @@ Public Module CoreModule
             End With
          End If
       Catch ExceptionO As Exception
-         HandleError(ExceptionO)
+         DisplayError(ExceptionO)
       End Try
    End Sub
 
@@ -106,7 +106,7 @@ Public Module CoreModule
             Console.WriteLine($"WARNING: Not all data has been read: {DatFileLength - CalculatedDatFileLength} bytes.")
          End If
       Catch ExceptionO As Exception
-         HandleError(ExceptionO)
+         DisplayError(ExceptionO)
       End Try
    End Sub
 
@@ -128,7 +128,7 @@ Public Module CoreModule
             End If
          Next Index
       Catch ExceptionO As Exception
-         HandleError(ExceptionO)
+         DisplayError(ExceptionO)
       End Try
    End Sub
 
@@ -178,7 +178,7 @@ Public Module CoreModule
 
          Return If(DecompressedData.Count = DecompressedSize, DecompressedData, New List(Of Byte))
       Catch ExceptionO As Exception
-         HandleError(ExceptionO)
+         DisplayError(ExceptionO)
       End Try
 
       Return New List(Of Byte)
@@ -199,10 +199,19 @@ Public Module CoreModule
             File.WriteAllBytes(DecompressedFile, DecompressedData.ToArray())
          End If
       Catch ExceptionO As Exception
-         HandleError(ExceptionO)
+         DisplayError(ExceptionO)
       End Try
    End Sub
 
+   'This procedure displays any errors that occur.
+   Private Sub DisplayError(ExceptionO As Exception)
+      Try
+         Console.Error.WriteLine($"ERROR: {ExceptionO.Message}")
+         [Exit](0)
+      Catch
+         [Exit](0)
+      End Try
+   End Sub
 
    'This procedure retrieves and returns the specified data file's contents.
    Private Function GetDatFileData(DatFile As String) As List(Of Byte)
@@ -215,7 +224,7 @@ Public Module CoreModule
 
          Return Data
       Catch ExceptionO As Exception
-         HandleError(ExceptionO)
+         DisplayError(ExceptionO)
       End Try
 
       Return New List(Of Byte)
@@ -252,19 +261,9 @@ Public Module CoreModule
 
          Return DirFileEntries
       Catch ExceptionO As Exception
-         HandleError(ExceptionO)
+         DisplayError(ExceptionO)
       End Try
 
       Return New List(Of DirFileEntryStr)
    End Function
-
-   'This procedure handles any errors that occur.
-   Private Sub HandleError(ExceptionO As Exception)
-      Try
-         Console.WriteLine($"ERROR: {ExceptionO.Message}")
-         [Exit](0)
-      Catch
-         [Exit](0)
-      End Try
-   End Sub
 End Module
