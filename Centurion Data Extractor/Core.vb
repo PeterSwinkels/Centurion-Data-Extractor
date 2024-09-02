@@ -7,6 +7,7 @@ Option Strict On
 Imports System
 Imports System.Collections.Generic
 Imports System.Convert
+Imports System.Diagnostics
 Imports System.Environment
 Imports System.IO
 Imports System.Linq
@@ -28,6 +29,7 @@ Public Module CoreModule
       Public Format As FormatsE   'Defines a directory file's format.
    End Structure
 
+   Private Const DECOMPRESSOR As String = "unlzss.exe"                                                            'Defines the external decompression program.
    Private ReadOnly DAT_FILE_SIGNATURE() As Byte = {&HCA%, &HCA%, &HD0%, &HD0%}                                   'Defines the data file signature.
    Private ReadOnly INVALID_CHARACTERS() As Char = {"*"c, "/"c, "<"c, ">"c, "?"c, "["c, "\"c, "]"c, "|"c, " "c}   'Defines characters that are invalid in file names in MS-DOS.
    Private ReadOnly PADDING As Char = ToChar(&H0%)                                                                'Defines the null character used to terminate and pad file names.
@@ -71,14 +73,14 @@ Public Module CoreModule
                            Console.WriteLine($"Writing: { TargetFile} ({ .Format.ToString()})")
                            File.WriteAllBytes(TargetFile, GetDatFileData(DatFile).GetRange(.Offset, .Length).ToArray())
                            If .Format = FormatsE.Compressed Then
-                              DecompressFile(TargetFile)
+                              DECOMPRESS(TargetFile)
                            End If
                         End With
                      Next DirFileEntry
                   Next DirFile
                End If
             ElseIf File.Exists(SourcePath) Then
-               DecompressFile(SourcePath)
+               DECOMPRESS(SourcePath)
             Else
                Throw New Exception($"Could not find: {SourcePath}.")
             End If
@@ -132,72 +134,12 @@ Public Module CoreModule
       End Try
    End Sub
 
-   'This procedure decompresses the specified compressed data and returns the result.
-   Private Function DecompressData(CompressedData() As Byte) As List(Of Byte)
+   'This procedure starts the decompressor and passes the specified file to it
+   Private Sub Decompress(CompressedFile As String)
       Try
-         Dim ByteO As New Byte
-         Dim DecompressedData As New List(Of Byte)
-         Dim DecompressedSize As New Integer
-         Dim Dictionary(&H0% To &HFFF%) As Byte
-         Dim DictionaryPosition As Integer = &HFEE%
-         Dim Flag As New Integer
-         Dim Flags As New Integer
-         Dim Length As New Integer
-         Dim Offset As New Integer
+         Dim ProcessO As Process = Process.Start(New ProcessStartInfo With {.FileName = DECOMPRESSOR, .Arguments = CompressedFile, .UseShellExecute = False, .RedirectStandardError = False, .RedirectStandardInput = False, .RedirectStandardOutput = False})  'This procedure launches the external decompression program.
 
-         Using CompressedDataSream As New BinaryReader(New MemoryStream(CompressedData))
-            DecompressedSize = CompressedDataSream.ReadInt32()
-            While (CompressedDataSream.BaseStream.Position < CompressedDataSream.BaseStream.Length)
-               ByteO = CompressedDataSream.ReadByte()
-               If Flags <= &H1% Then
-                  Flags = &H100% Or ByteO
-               Else
-                  Flag = Flags And &H1%
-                  Flags = Flags >> &H1%
-                  If Flag = &H0% Then
-                     Offset = ByteO
-                     ByteO = CompressedDataSream.ReadByte()
-                     Offset = Offset Or (ByteO And &HF0%) << &H4%
-                     Length = (ByteO And &HF%) + &H3%
-                     While Length > &H0%
-                        Length -= &H1%
-                        ByteO = Dictionary(Offset)
-                        Offset = (Offset + &H1%) And &HFFF%
-                        DecompressedData.Add(ByteO)
-                        Dictionary(DictionaryPosition) = ByteO
-                        DictionaryPosition = (DictionaryPosition + &H1%) And &HFFF%
-                     End While
-                  ElseIf Flag = &H1% Then
-                     Dictionary(DictionaryPosition) = ByteO
-                     DictionaryPosition = (DictionaryPosition + &H1%) And &HFFF%
-                     DecompressedData.Add(ByteO)
-                  End If
-               End If
-            End While
-         End Using
-
-         Return If(DecompressedData.Count = DecompressedSize, DecompressedData, New List(Of Byte))
-      Catch ExceptionO As Exception
-         DisplayError(ExceptionO)
-      End Try
-
-      Return New List(Of Byte)
-   End Function
-
-   'This procedure decompresses the specified file and writes the result to another file.
-   Private Sub DecompressFile(CompressedFile As String)
-      Try
-         Dim DecompressedData As New List(Of Byte)
-         Dim DecompressedFile As String = Nothing
-
-         DecompressedFile = $"{CompressedFile}.DAT"
-         Console.WriteLine($"Decompressing: {CompressedFile} to: {DecompressedFile}")
-         DecompressedData = DecompressData(File.ReadAllBytes(CompressedFile))
-         If DecompressedData.Count = 0 Then
-            Console.WriteLine("WARNING: Could not decompress file.")
-         Else
-            File.WriteAllBytes(DecompressedFile, DecompressedData.ToArray())
-         End If
+         ProcessO.WaitForExit()
       Catch ExceptionO As Exception
          DisplayError(ExceptionO)
       End Try
